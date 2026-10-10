@@ -42,7 +42,7 @@ export async function GET(req: Request) {
           </div>
         </div>
       ),
-      { width: 500, height: 950 }
+      { width: 500, height: 1050 }
     );
   } catch (error: any) {
     console.error("Pass generation error:", error);
