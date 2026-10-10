@@ -1,44 +1,41 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import QRCode from 'qrcode';
-import { promises as fs } from 'fs';
-import path from 'path';
 
-export async function GET(request: NextRequest) {
+export async function GET(req: NextRequest) {
   try {
-    const { searchParams } = new URL(request.url);
+    const { searchParams } = new URL(req.url);
     const name = searchParams.get('name') || 'Student Pass';
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
 
-    // Generate the QR code data URI directly inside the API route using the usn parameter
-    const qrContent = `niat-navratri-26-${usn}`;
-    const qrDataUrl = await QRCode.toDataURL(qrContent, {
+    // Determine host dynamically from incoming request
+    const host = req.headers.get('host') || 'localhost:3000';
+    const protocol = host.includes('localhost') ? 'http' : 'https';
+    const imageUrl = `${protocol}://${host}/dandiya-art.jpg`;
+
+    // Fetch image buffer and convert to base64
+    let imageSrc = imageUrl;
+    try {
+      const res = await fetch(imageUrl);
+      if (res.ok) {
+        const buffer = await res.arrayBuffer();
+        const base64 = Buffer.from(buffer).toString('base64');
+        imageSrc = `data:image/jpeg;base64,${base64}`;
+      }
+    } catch (e) {
+      console.error('Failed to pre-fetch image buffer:', e);
+    }
+
+    // Generate QR code internally using usn
+    const qrDataUrl = await QRCode.toDataURL(`niat-navratri-26-${usn}`, {
       margin: 1,
       width: 130,
       color: {
-        dark: '#7C2D12', // Deep brown/amber QR code
+        dark: '#7C2D12',
         light: '#FFFFFF',
       },
     });
-
-    // Deterministic image selection based on USN
-    const usnClean = usn.trim().toLowerCase();
-    const charCodeSum = usnClean.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
-    const isOdd = charCodeSum % 2 !== 0;
-    const imageFileName = isOdd ? 'dandiya-art-1.jpg' : 'dandiya-art-2.jpg';
-
-    // Read the image directly from the public folder as base64 data URI
-    let imageBase64 = '';
-    try {
-      const filePath = path.join(process.cwd(), 'public', imageFileName);
-      const imageBuffer = await fs.readFile(filePath);
-      imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
-    } catch (e) {
-      console.error(`Error reading ${imageFileName} from public folder:`, e);
-      imageBase64 =
-        'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80';
-    }
 
     return new ImageResponse(
       (
@@ -132,12 +129,12 @@ export async function GET(request: NextRequest) {
             <div style={{ display: 'flex', flex: 1, height: '2px', backgroundColor: '#F97316' }} />
           </div>
 
-          {/* Central Portrait Artwork Container (300x375px - 4:5 Aspect Ratio) */}
+          {/* Central Portrait Artwork Container */}
           <div
             style={{
               display: 'flex',
               width: '300px',
-              height: '375px',
+              height: '360px',
               borderRadius: '16px',
               overflow: 'hidden',
               border: '4px solid #F97316',
@@ -150,12 +147,13 @@ export async function GET(request: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imageBase64}
+              src={imageSrc}
               alt="Dandiya Celebration Artwork"
               style={{
-                width: '100%',
-                height: '100%',
+                width: '300px',
+                height: '360px',
                 objectFit: 'cover',
+                borderRadius: '12px',
               }}
             />
             {/* Overlay badge */}
