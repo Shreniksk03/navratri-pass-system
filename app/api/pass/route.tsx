@@ -1,7 +1,5 @@
 import { ImageResponse } from 'next/og';
 import QRCode from 'qrcode';
-import { promises as fs } from 'fs';
-import path from 'path';
 
 // IMPORTANT: Do NOT use `export const runtime = 'edge'`. Leave it as default Node.js.
 
@@ -12,18 +10,34 @@ export async function GET(req: Request) {
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
 
-    // 1. Safely read the image from the public folder in Node runtime
-    const filePath = path.join(process.cwd(), 'public', 'dandiya-art-2.jpg');
-    const imageBuffer = await fs.readFile(filePath);
-    const imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
+    // 1. Construct the absolute URL using Vercel's environment variable
+    const protocol = process.env.VERCEL_URL ? 'https' : 'http';
+    const host = process.env.VERCEL_URL || req.headers.get('host') || 'localhost:3000';
+    const imageUrl = `${protocol}://${host}/dandiya-art-2.jpg`;
 
-    // 2. Generate QR Code
+    // 2. Fetch the image and convert to base64
+    let imageBase64 = '';
+    try {
+      const imageRes = await fetch(imageUrl);
+      if (imageRes.ok) {
+        const imageBuffer = await imageRes.arrayBuffer();
+        imageBase64 = `data:image/jpeg;base64,${Buffer.from(imageBuffer).toString('base64')}`;
+      } else {
+        console.error('Failed to fetch image. Status:', imageRes.status);
+      }
+    } catch (e) {
+      console.error('Image fetch error:', e);
+    }
+
+    const finalImageSrc = imageBase64 || imageUrl;
+
+    // 3. Generate QR Code
     const qrDataUrl = await QRCode.toDataURL(`niat-navratri-26-${usn}`, {
       margin: 1,
       width: 160,
     });
 
-    // 3. Return the OG Image
+    // 4. Return the OG Image
     return new ImageResponse(
       (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#FFF0D4', width: '100%', height: '100%', padding: '40px' }}>
@@ -36,7 +50,7 @@ export async function GET(req: Request) {
 
           {/* Artwork */}
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageBase64} style={{ width: '360px', height: '450px', objectFit: 'cover', borderRadius: '16px', border: '4px solid #EA580C' }} alt="Pass Artwork" />
+          <img src={finalImageSrc} style={{ width: '360px', height: '450px', objectFit: 'cover', borderRadius: '16px', border: '4px solid #EA580C' }} alt="Pass Artwork" />
 
           {/* Student Info Container */}
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#FFFFFF', padding: '15px 40px', borderRadius: '12px', border: '2px dashed #FDBA74', marginTop: '20px', width: '360px' }}>
