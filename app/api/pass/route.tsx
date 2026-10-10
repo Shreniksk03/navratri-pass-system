@@ -11,40 +11,39 @@ export async function GET(req: NextRequest) {
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
 
-    // 1. Parse the request URL to get the origin
-    const reqUrl = new URL(req.url);
+    // 1. Get the real host and protocol from x-forwarded headers (most reliable on Vercel)
+    const protocol = req.headers.get('x-forwarded-proto') || 'https';
+    const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost:3000';
+    const baseUrl = `${protocol}://${host}`;
+    const imageUrl = `${baseUrl}/dandiya-art.jpg`;
 
-    // 2. Construct the absolute image URL dynamically
-    const imageUrl = `${reqUrl.origin}/dandiya-art.jpg`;
-
-    // 3. Fetch image buffer and convert to base64
-    let imageBase64 = '';
+    // 2. Fetch the image securely and convert to base64
+    let imageSrc = imageUrl;
     try {
       const res = await fetch(imageUrl);
       if (res.ok) {
         const buffer = await res.arrayBuffer();
-        imageBase64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
+        const base64 = Buffer.from(buffer).toString('base64');
+        imageSrc = `data:image/jpeg;base64,${base64}`;
       } else {
-        console.error('Failed to fetch image status:', res.status);
+        console.error('Failed to fetch image, status:', res.status);
       }
     } catch (e) {
       console.error('Fetch error:', e);
     }
 
-    // 4. Local disk fallback for local dev environment or SSRF loopback protection
-    if (!imageBase64) {
+    // 3. Local disk fallback for local localhost loopback protection
+    if (!imageSrc.startsWith('data:image')) {
       try {
         const localPath = path.join(process.cwd(), 'public', 'dandiya-art.jpg');
         if (fs.existsSync(localPath)) {
           const buffer = fs.readFileSync(localPath);
-          imageBase64 = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+          imageSrc = `data:image/jpeg;base64,${buffer.toString('base64')}`;
         }
       } catch (err) {
-        console.warn('Local disk fallback failed:', err);
+        console.warn('Local disk fallback warning:', err);
       }
     }
-
-    const finalImageSrc = imageBase64 || imageUrl;
 
     // Generate QR code internally using usn
     const qrDataUrl = await QRCode.toDataURL(`niat-navratri-26-${usn}`, {
@@ -166,7 +165,7 @@ export async function GET(req: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={finalImageSrc}
+              src={imageSrc}
               alt="Dandiya Celebration Artwork"
               style={{
                 width: '300px',
