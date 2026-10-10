@@ -1,8 +1,6 @@
 import { ImageResponse } from 'next/og';
 import QRCode from 'qrcode';
 
-// Leave as standard Node.js runtime (do NOT use edge)
-
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
@@ -10,17 +8,8 @@ export async function GET(req: Request) {
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
 
-    // 1. Fetch image directly from GitHub (bypasses Vercel loopback blocks completely)
+    // 1. Direct external URL (No fetching or base64 conversion needed!)
     const githubImageUrl = 'https://raw.githubusercontent.com/Shreniksk03/navratri-pass-system/main/public/dandiya-art-2.jpg';
-    
-    let imageBase64 = '';
-    const imageRes = await fetch(githubImageUrl);
-    if (imageRes.ok) {
-      const imageBuffer = await imageRes.arrayBuffer();
-      imageBase64 = `data:image/jpeg;base64,${Buffer.from(imageBuffer).toString('base64')}`;
-    } else {
-      throw new Error(`GitHub fetch failed: ${imageRes.statusText}`);
-    }
 
     // 2. Generate QR Code
     const qrDataUrl = await QRCode.toDataURL(`niat-navratri-26-${usn}`, {
@@ -38,8 +27,8 @@ export async function GET(req: Request) {
             <p style={{ color: '#D97706', fontSize: '16px', margin: 0 }}>Grand Campus Cultural Night 2026</p>
           </div>
 
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={imageBase64} style={{ width: '360px', height: '450px', objectFit: 'cover', borderRadius: '16px', border: '4px solid #EA580C' }} alt="Pass Artwork" />
+          {/* Pass the GitHub URL directly into the src */}
+          <img src={githubImageUrl} style={{ width: '360px', height: '450px', objectFit: 'cover', borderRadius: '16px', border: '4px solid #EA580C' }} />
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#FFFFFF', padding: '15px 40px', borderRadius: '12px', border: '2px dashed #FDBA74', marginTop: '20px', width: '360px' }}>
             <h2 style={{ color: '#1E293B', fontSize: '28px', margin: '0 0 5px 0' }}>{name}</h2>
@@ -48,8 +37,7 @@ export async function GET(req: Request) {
           </div>
 
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#FFFFFF', padding: '10px', borderRadius: '12px', border: '3px solid #EA580C', marginTop: '20px' }}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={qrDataUrl} style={{ width: '140px', height: '140px' }} alt="QR Code" />
+            <img src={qrDataUrl} style={{ width: '140px', height: '140px' }} />
             <p style={{ color: '#9A2A2A', fontSize: '10px', marginTop: '5px', letterSpacing: '1px' }}>SCAN AT MAIN GATE</p>
           </div>
         </div>
