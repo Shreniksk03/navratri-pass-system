@@ -1,7 +1,7 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import QRCode from 'qrcode';
-import fs from 'fs';
+import { promises as fs } from 'fs';
 import path from 'path';
 
 export async function GET(request: NextRequest) {
@@ -22,35 +22,22 @@ export async function GET(request: NextRequest) {
       },
     });
 
-    // Deterministic image selection based on USN (odd vs even character code sum)
+    // Deterministic image selection based on USN
     const usnClean = usn.trim().toLowerCase();
     const charCodeSum = usnClean.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
     const isOdd = charCodeSum % 2 !== 0;
-    const selectedImageName = isOdd ? 'dandiya-art-1.jpg' : 'dandiya-art-2.jpg';
+    const imageFileName = isOdd ? 'dandiya-art-1.jpg' : 'dandiya-art-2.jpg';
 
-    // Dynamically construct absolute URL using VERCEL_URL or NEXT_PUBLIC_BASE_URL (with localhost fallback)
-    let baseUrl = 'http://localhost:3000';
-    if (process.env.VERCEL_URL) {
-      baseUrl = `https://${process.env.VERCEL_URL}`;
-    } else if (process.env.NEXT_PUBLIC_BASE_URL) {
-      baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
-    } else if (request.headers.get('host')) {
-      const protocol = request.headers.get('x-forwarded-proto') || 'http';
-      baseUrl = `${protocol}://${request.headers.get('host')}`;
-    }
-
-    const absoluteImageUrl = `${baseUrl}/${selectedImageName}`;
-
-    // Load local public artwork file as Base64 Data URL to guarantee instantaneous rendering & bypass local loopback SSRF
-    let finalArtworkSrc = absoluteImageUrl;
+    // Read the image directly from the public folder as base64 data URI
+    let imageBase64 = '';
     try {
-      const localImagePath = path.join(process.cwd(), 'public', selectedImageName);
-      if (fs.existsSync(localImagePath)) {
-        const fileBuffer = fs.readFileSync(localImagePath);
-        finalArtworkSrc = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
-      }
+      const filePath = path.join(process.cwd(), 'public', imageFileName);
+      const imageBuffer = await fs.readFile(filePath);
+      imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
     } catch (e) {
-      console.warn(`Unable to read ${selectedImageName} locally, using absolute URL:`, e);
+      console.error(`Error reading ${imageFileName} from public folder:`, e);
+      imageBase64 =
+        'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80';
     }
 
     return new ImageResponse(
@@ -163,7 +150,7 @@ export async function GET(request: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={finalArtworkSrc}
+              src={imageBase64}
               alt="Dandiya Celebration Artwork"
               style={{
                 width: '100%',

@@ -83,15 +83,15 @@ export default function AdminDashboard() {
     fetchStudents();
   }, []);
 
-  // Construct short, clean pass URL without frontend base64 QR generation
+  // Construct short, clean pass URL pointing to actual /api/pass endpoint
   const constructPassUrl = (name: string, usn: string, year: string): string => {
     const baseUrl =
       process.env.NEXT_PUBLIC_BASE_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+      (typeof window !== 'undefined' ? window.location.origin : 'https://navratri-pass-system.vercel.app');
     return `${baseUrl}/api/pass?name=${encodeURIComponent(name)}&usn=${encodeURIComponent(usn)}&year=${encodeURIComponent(year || '')}`;
   };
 
-  // Generate button logic (pure server-side QR generation via /api/pass)
+  // Generate button logic (saves passUrl & qrData to Google Sheet)
   const handleGeneratePass = async (student: Student) => {
     const key = `gen-${student.rowIndex}`;
     setActionLoading((prev) => ({ ...prev, [key]: true }));
@@ -136,10 +136,9 @@ export default function AdminDashboard() {
     }
   };
 
-  // Send via WhatsApp button logic using short & clean passUrl
+  // Send via WhatsApp logic: appends actual passUrl image endpoint, NOT raw QR text
   const handleSendWhatsApp = (student: Student) => {
-    const url = constructPassUrl(student.name, student.usn, student.year);
-    const targetPassUrl = student.passUrl || url;
+    const passUrl = student.passUrl || constructPassUrl(student.name, student.usn, student.year);
 
     let cleanPhone = student.whatsappNumber.replace(/\D/g, '');
     if (cleanPhone.length === 10) {
@@ -148,7 +147,7 @@ export default function AdminDashboard() {
       cleanPhone = `91${cleanPhone.slice(1)}`;
     }
 
-    const message = `Hi ${student.name}, here is your Navratri pass! Please download it and show it at the gate: ${targetPassUrl}`;
+    const message = `Hi ${student.name}, here is your Navratri Dandiya pass! Please download it and show it at the gate:\n\n${passUrl}`;
     const waUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
 
     window.open(waUrl, '_blank');
@@ -251,7 +250,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Short & Clean Pass URLs (`name`, `usn`, `year`)
+                1-Click WhatsApp Dispatch with Direct /api/pass Endpoint Link
               </p>
             </div>
           </div>
