@@ -10,44 +10,47 @@ export async function GET(request: NextRequest) {
     const name = searchParams.get('name') || 'Student Pass';
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
-    let qrParam = searchParams.get('qr');
 
-    let qrDataUrl = qrParam || '';
+    // Generate the QR code data URI directly inside the API route using the usn parameter
+    const qrContent = `niat-navratri-26-${usn}`;
+    const qrDataUrl = await QRCode.toDataURL(qrContent, {
+      margin: 1,
+      width: 130,
+      color: {
+        dark: '#7C2D12', // Deep brown/amber QR code
+        light: '#FFFFFF',
+      },
+    });
 
-    // If QR code is not passed as base64 data URL, generate it from USN
-    if (!qrDataUrl || !qrDataUrl.startsWith('data:image')) {
-      const qrText = qrParam || `navratri-26-${usn}`;
-      qrDataUrl = await QRCode.toDataURL(qrText, {
-        margin: 1,
-        width: 160,
-        color: {
-          dark: '#7C2D12', // Deep brown/amber QR code
-          light: '#FFFFFF',
-        },
-      });
+    // Deterministic image selection based on USN (odd vs even character code sum)
+    const usnClean = usn.trim().toLowerCase();
+    const charCodeSum = usnClean.split('').reduce((sum, char) => sum + char.charCodeAt(0), 0);
+    const isOdd = charCodeSum % 2 !== 0;
+    const selectedImageName = isOdd ? 'dandiya-art-1.jpg' : 'dandiya-art-2.jpg';
+
+    // Dynamically construct absolute URL using VERCEL_URL or NEXT_PUBLIC_BASE_URL (with localhost fallback)
+    let baseUrl = 'http://localhost:3000';
+    if (process.env.VERCEL_URL) {
+      baseUrl = `https://${process.env.VERCEL_URL}`;
+    } else if (process.env.NEXT_PUBLIC_BASE_URL) {
+      baseUrl = process.env.NEXT_PUBLIC_BASE_URL;
+    } else if (request.headers.get('host')) {
+      const protocol = request.headers.get('x-forwarded-proto') || 'http';
+      baseUrl = `${protocol}://${request.headers.get('host')}`;
     }
 
-    // Read local public artwork file and encode as Base64 Data URL to bypass SSRF restrictions
-    let dandiyaArtworkDataUrl = '';
-    try {
-      const jpgPath = path.join(process.cwd(), 'public', 'dandiya-art.jpg');
-      const pngPath = path.join(process.cwd(), 'public', 'dandiya-art.png');
+    const absoluteImageUrl = `${baseUrl}/${selectedImageName}`;
 
-      if (fs.existsSync(jpgPath)) {
-        const fileBuffer = fs.readFileSync(jpgPath);
-        dandiyaArtworkDataUrl = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
-      } else if (fs.existsSync(pngPath)) {
-        const fileBuffer = fs.readFileSync(pngPath);
-        dandiyaArtworkDataUrl = `data:image/png;base64,${fileBuffer.toString('base64')}`;
+    // Load local public artwork file as Base64 Data URL to guarantee instantaneous rendering & bypass local loopback SSRF
+    let finalArtworkSrc = absoluteImageUrl;
+    try {
+      const localImagePath = path.join(process.cwd(), 'public', selectedImageName);
+      if (fs.existsSync(localImagePath)) {
+        const fileBuffer = fs.readFileSync(localImagePath);
+        finalArtworkSrc = `data:image/jpeg;base64,${fileBuffer.toString('base64')}`;
       }
     } catch (e) {
-      console.warn('Unable to load local public dandiya image, falling back to default:', e);
-    }
-
-    // Fallback URL if local file is missing
-    if (!dandiyaArtworkDataUrl) {
-      dandiyaArtworkDataUrl =
-        'https://images.unsplash.com/photo-1534447677768-be436bb09401?w=800&auto=format&fit=crop&q=80';
+      console.warn(`Unable to read ${selectedImageName} locally, using absolute URL:`, e);
     }
 
     return new ImageResponse(
@@ -63,8 +66,8 @@ export async function GET(request: NextRequest) {
             backgroundColor: '#FFEDD5', // bg-orange-100
             backgroundImage:
               'radial-gradient(circle at 50% 0%, #FED7AA 0%, #FFEDD5 70%, #FFEDD5 100%)',
-            padding: '24px 20px',
-            border: '12px solid #C2410C', // Festive red-orange outer border
+            padding: '16px 18px',
+            border: '10px solid #C2410C', // Festive red-orange outer border
             boxSizing: 'border-box',
             fontFamily: 'sans-serif',
           }}
@@ -76,13 +79,13 @@ export async function GET(request: NextRequest) {
               flexDirection: 'column',
               alignItems: 'center',
               width: '100%',
-              marginBottom: '6px',
+              marginBottom: '4px',
             }}
           >
             <div
               style={{
                 display: 'flex',
-                fontSize: '12px',
+                fontSize: '11px',
                 letterSpacing: '3px',
                 fontWeight: 800,
                 color: '#B45309',
@@ -95,11 +98,11 @@ export async function GET(request: NextRequest) {
             <div
               style={{
                 display: 'flex',
-                fontSize: '26px',
+                fontSize: '24px',
                 fontWeight: 900,
                 color: '#9A3412', // Large bold red/orange font
                 textAlign: 'center',
-                lineHeight: '1.2',
+                lineHeight: '1.1',
               }}
             >
               Navratri Dandiya Celebration
@@ -107,7 +110,7 @@ export async function GET(request: NextRequest) {
             <div
               style={{
                 display: 'flex',
-                fontSize: '12px',
+                fontSize: '11px',
                 fontWeight: 600,
                 color: '#C2410C',
                 marginTop: '2px',
@@ -124,7 +127,7 @@ export async function GET(request: NextRequest) {
               alignItems: 'center',
               width: '80%',
               justifyContent: 'center',
-              marginBottom: '8px',
+              marginBottom: '6px',
             }}
           >
             <div style={{ display: 'flex', flex: 1, height: '2px', backgroundColor: '#F97316' }} />
@@ -133,7 +136,7 @@ export async function GET(request: NextRequest) {
                 display: 'flex',
                 color: '#EA580C',
                 padding: '0 8px',
-                fontSize: '13px',
+                fontSize: '12px',
                 fontWeight: 700,
               }}
             >
@@ -142,12 +145,12 @@ export async function GET(request: NextRequest) {
             <div style={{ display: 'flex', flex: 1, height: '2px', backgroundColor: '#F97316' }} />
           </div>
 
-          {/* Central Artwork Container (Loaded from public/dandiya-art.jpg) */}
+          {/* Central Portrait Artwork Container (300x375px - 4:5 Aspect Ratio) */}
           <div
             style={{
               display: 'flex',
-              width: '320px',
-              height: '230px',
+              width: '300px',
+              height: '375px',
               borderRadius: '16px',
               overflow: 'hidden',
               border: '4px solid #F97316',
@@ -160,7 +163,7 @@ export async function GET(request: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={dandiyaArtworkDataUrl}
+              src={finalArtworkSrc}
               alt="Dandiya Celebration Artwork"
               style={{
                 width: '100%',
@@ -195,25 +198,25 @@ export async function GET(request: NextRequest) {
               flexDirection: 'column',
               alignItems: 'center',
               justifyContent: 'center',
-              marginTop: '12px',
-              marginBottom: '8px',
+              marginTop: '6px',
+              marginBottom: '6px',
               backgroundColor: '#FFFFFF',
-              borderRadius: '16px',
-              padding: '12px 24px',
-              width: '340px',
+              borderRadius: '14px',
+              padding: '8px 18px',
+              width: '320px',
               border: '2px dashed #FDBA74',
-              boxShadow: '0 4px 6px rgba(0,0,0,0.04)',
+              boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
             }}
           >
             {/* 1. Student Name (Large Font) */}
             <div
               style={{
                 display: 'flex',
-                fontSize: '26px',
+                fontSize: '22px',
                 fontWeight: 900,
                 color: '#1E293B',
                 textAlign: 'center',
-                marginBottom: '2px',
+                marginBottom: '1px',
                 letterSpacing: '-0.5px',
               }}
             >
@@ -225,10 +228,10 @@ export async function GET(request: NextRequest) {
               <div
                 style={{
                   display: 'flex',
-                  fontSize: '16px',
+                  fontSize: '15px',
                   fontWeight: 700,
                   color: '#C2410C',
-                  marginBottom: '4px',
+                  marginBottom: '2px',
                 }}
               >
                 {year}
@@ -239,7 +242,7 @@ export async function GET(request: NextRequest) {
             <div
               style={{
                 display: 'flex',
-                fontSize: '13px',
+                fontSize: '12px',
                 fontWeight: 600,
                 color: '#64748B',
                 letterSpacing: '1.5px',
@@ -257,10 +260,10 @@ export async function GET(request: NextRequest) {
               flexDirection: 'column',
               alignItems: 'center',
               backgroundColor: '#FFFFFF',
-              padding: '10px',
-              borderRadius: '16px',
+              padding: '6px',
+              borderRadius: '14px',
               border: '3px solid #EA580C',
-              boxShadow: '0 4px 12px rgba(154, 52, 18, 0.15)',
+              boxShadow: '0 4px 10px rgba(154, 52, 18, 0.15)',
             }}
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -268,18 +271,18 @@ export async function GET(request: NextRequest) {
               src={qrDataUrl}
               alt="Pass QR Code"
               style={{
-                width: '130px',
-                height: '130px',
-                borderRadius: '8px',
+                width: '105px',
+                height: '105px',
+                borderRadius: '6px',
               }}
             />
             <div
               style={{
                 display: 'flex',
-                fontSize: '10px',
+                fontSize: '9px',
                 fontWeight: 800,
                 color: '#9A3412',
-                marginTop: '4px',
+                marginTop: '3px',
                 letterSpacing: '1px',
               }}
             >
@@ -294,7 +297,7 @@ export async function GET(request: NextRequest) {
               fontSize: '10px',
               color: '#9A3412',
               fontWeight: 600,
-              marginTop: '6px',
+              marginTop: '4px',
             }}
           >
             Non-Transferable • College ID Mandatory

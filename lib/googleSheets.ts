@@ -16,7 +16,6 @@ export interface StudentRow {
   checkedIn: string; // Column K (Checked_In: "Yes" or "")
 }
 
-// Mock store matching updated 11-column schema A:K
 let mockStudentsStore: StudentRow[] = [
   {
     rowIndex: 2,
@@ -27,7 +26,7 @@ let mockStudentsStore: StudentRow[] = [
     hosteller: 'Yes',
     block: 'Block A',
     whatsappNumber: '9876543210',
-    qrData: 'navratri-26-1RV21CS001',
+    qrData: 'niat-navratri-26-1RV21CS001',
     passUrl: '/api/pass?name=Aarav%20Sharma&usn=1RV21CS001&year=3rd%20Year',
     passGenerated: 'Yes',
     status: 'Sent',
@@ -42,11 +41,11 @@ let mockStudentsStore: StudentRow[] = [
     hosteller: 'No',
     block: 'Day Scholar',
     whatsappNumber: '9123456789',
-    qrData: 'navratri-26-1RV21CS045',
+    qrData: 'niat-navratri-26-1RV21CS045',
     passUrl: '/api/pass?name=Ananya%20Patel&usn=1RV21CS045&year=2nd%20Year',
     passGenerated: 'Yes',
     status: 'Sent',
-    checkedIn: 'Yes', // Already checked in for testing 400 error
+    checkedIn: 'Yes',
   },
   {
     rowIndex: 4,
@@ -57,7 +56,7 @@ let mockStudentsStore: StudentRow[] = [
     hosteller: 'Yes',
     block: 'Block C',
     whatsappNumber: '9988776655',
-    qrData: 'navratri-26-1RV21EC089',
+    qrData: 'niat-navratri-26-1RV21EC089',
     passUrl: '/api/pass?name=Rohan%20Verma&usn=1RV21EC089&year=4th%20Year',
     passGenerated: 'Yes',
     status: 'Sent',
@@ -111,21 +110,6 @@ function getGoogleSheetsClient() {
   return google.sheets({ version: 'v4', auth });
 }
 
-/**
- * Fetch all student rows from Google Sheets (Range A2:K)
- * Columns:
- * A: Timestamp (row[0])
- * B: Name (row[1])
- * C: USN (row[2])
- * D: which year (row[3])
- * E: Hosteller (row[4])
- * F: Block (row[5])
- * G: WhatsApp (row[6])
- * H: QR_Data (row[7])
- * I: Pass_URL (row[8])
- * J: Pass_Status (row[9])
- * K: Checked_In (row[10])
- */
 export async function getStudents(): Promise<{ students: StudentRow[]; isMock: boolean }> {
   if (!isGoogleSheetsConfigured()) {
     return { students: mockStudentsStore, isMock: true };
@@ -173,9 +157,6 @@ export async function getStudents(): Promise<{ students: StudentRow[]; isMock: b
   }
 }
 
-/**
- * Update specific student row in Google Sheets
- */
 export async function updateStudentRow(
   rowIndex: number,
   updates: {
@@ -274,10 +255,6 @@ export async function updateStudentRow(
   }
 }
 
-/**
- * Check-in student by scanned QR Code or USN string
- * Updates Column K (Checked_In) to "Yes"
- */
 export async function checkInStudentByQR(scannedData: string): Promise<{
   status: number;
   success: boolean;
@@ -285,21 +262,19 @@ export async function checkInStudentByQR(scannedData: string): Promise<{
   studentName?: string;
   usn?: string;
 }> {
-  const cleanData = scannedData.trim();
+  const cleanData = scannedData.trim().toLowerCase();
 
-  // 1. Fetch current students
   const { students } = await getStudents();
 
-  // 2. Find student by matching qrData, formatted QR string, or USN
   const student = students.find((s) => {
     if (!cleanData) return false;
-    const matchQr = s.qrData && s.qrData.trim().toLowerCase() === cleanData.toLowerCase();
-    const matchUsn = s.usn && s.usn.trim().toLowerCase() === cleanData.toLowerCase();
-    const matchFormatted = cleanData.toLowerCase() === `navratri-26-${s.usn.trim().toLowerCase()}`;
-    return matchQr || matchUsn || matchFormatted;
+    const matchQr = s.qrData && s.qrData.trim().toLowerCase() === cleanData;
+    const matchUsn = s.usn && s.usn.trim().toLowerCase() === cleanData;
+    const matchFormatted1 = cleanData === `niat-navratri-26-${s.usn.trim().toLowerCase()}`;
+    const matchFormatted2 = cleanData === `navratri-26-${s.usn.trim().toLowerCase()}`;
+    return matchQr || matchUsn || matchFormatted1 || matchFormatted2;
   });
 
-  // Not found -> 404 Error: Invalid Pass
   if (!student) {
     return {
       status: 404,
@@ -308,7 +283,6 @@ export async function checkInStudentByQR(scannedData: string): Promise<{
     };
   }
 
-  // Already checked in -> 400 Error: Already Checked In
   if (student.checkedIn && student.checkedIn.trim().toLowerCase() === 'yes') {
     return {
       status: 400,
@@ -319,7 +293,6 @@ export async function checkInStudentByQR(scannedData: string): Promise<{
     };
   }
 
-  // Valid and not checked in -> Update Column K to "Yes"
   await updateStudentRow(student.rowIndex, { checkedIn: 'Yes' });
 
   return {

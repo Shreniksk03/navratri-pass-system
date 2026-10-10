@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
-import QRCode from 'qrcode';
 import Link from 'next/link';
 import {
   Sparkles,
@@ -84,31 +83,22 @@ export default function AdminDashboard() {
     fetchStudents();
   }, []);
 
-  const constructPassUrl = async (name: string, usn: string, year: string): Promise<{ url: string; qrText: string }> => {
-    const origin = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-    const qrText = `navratri-26-${usn}`;
-    let base64Qr = '';
-    try {
-      base64Qr = await QRCode.toDataURL(qrText, { margin: 1, width: 160 });
-    } catch (e) {
-      console.error('QR code generation error:', e);
-    }
-
-    const encodedName = encodeURIComponent(name);
-    const encodedUsn = encodeURIComponent(usn);
-    const encodedYear = encodeURIComponent(year || '');
-    const encodedQr = encodeURIComponent(base64Qr);
-
-    const url = `${origin}/api/pass?name=${encodedName}&usn=${encodedUsn}&year=${encodedYear}&qr=${encodedQr}`;
-    return { url, qrText };
+  // Construct short, clean pass URL without frontend base64 QR generation
+  const constructPassUrl = (name: string, usn: string, year: string): string => {
+    const baseUrl =
+      process.env.NEXT_PUBLIC_BASE_URL ||
+      (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+    return `${baseUrl}/api/pass?name=${encodeURIComponent(name)}&usn=${encodeURIComponent(usn)}&year=${encodeURIComponent(year || '')}`;
   };
 
+  // Generate button logic (pure server-side QR generation via /api/pass)
   const handleGeneratePass = async (student: Student) => {
     const key = `gen-${student.rowIndex}`;
     setActionLoading((prev) => ({ ...prev, [key]: true }));
 
     try {
-      const { url, qrText } = await constructPassUrl(student.name, student.usn, student.year);
+      const url = constructPassUrl(student.name, student.usn, student.year);
+      const qrText = `niat-navratri-26-${student.usn}`;
 
       const res = await fetch('/api/students/update', {
         method: 'POST',
@@ -146,8 +136,9 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleSendWhatsApp = async (student: Student) => {
-    const { url } = await constructPassUrl(student.name, student.usn, student.year);
+  // Send via WhatsApp button logic using short & clean passUrl
+  const handleSendWhatsApp = (student: Student) => {
+    const url = constructPassUrl(student.name, student.usn, student.year);
     const targetPassUrl = student.passUrl || url;
 
     let cleanPhone = student.whatsappNumber.replace(/\D/g, '');
@@ -200,15 +191,10 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleOpenPreview = async (student: Student) => {
-    if (student.passUrl) {
-      setPreviewStudent(student);
-      setPreviewPassUrl(student.passUrl);
-    } else {
-      const { url } = await constructPassUrl(student.name, student.usn, student.year);
-      setPreviewStudent(student);
-      setPreviewPassUrl(url);
-    }
+  const handleOpenPreview = (student: Student) => {
+    const url = student.passUrl || constructPassUrl(student.name, student.usn, student.year);
+    setPreviewStudent(student);
+    setPreviewPassUrl(url);
   };
 
   const filteredStudents = useMemo(() => {
@@ -265,7 +251,7 @@ export default function AdminDashboard() {
                 </span>
               </div>
               <p className="text-xs text-slate-400">
-                Mapped Columns A:K (Includes Gate Check-in Column K)
+                Short & Clean Pass URLs (`name`, `usn`, `year`)
               </p>
             </div>
           </div>
