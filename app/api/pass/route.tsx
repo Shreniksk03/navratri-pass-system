@@ -1,6 +1,8 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import QRCode from 'qrcode';
+import fs from 'fs';
+import path from 'path';
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,23 +11,40 @@ export async function GET(req: NextRequest) {
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
 
-    // Determine host dynamically from incoming request
-    const host = req.headers.get('host') || 'localhost:3000';
-    const protocol = host.includes('localhost') ? 'http' : 'https';
-    const imageUrl = `${protocol}://${host}/dandiya-art.jpg`;
+    // 1. Parse the request URL to get the origin
+    const reqUrl = new URL(req.url);
 
-    // Fetch image buffer and convert to base64
-    let imageSrc = imageUrl;
+    // 2. Construct the absolute image URL dynamically
+    const imageUrl = `${reqUrl.origin}/dandiya-art.jpg`;
+
+    // 3. Fetch image buffer and convert to base64
+    let imageBase64 = '';
     try {
       const res = await fetch(imageUrl);
       if (res.ok) {
         const buffer = await res.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        imageSrc = `data:image/jpeg;base64,${base64}`;
+        imageBase64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
+      } else {
+        console.error('Failed to fetch image status:', res.status);
       }
     } catch (e) {
-      console.error('Failed to pre-fetch image buffer:', e);
+      console.error('Fetch error:', e);
     }
+
+    // 4. Local disk fallback for local dev environment or SSRF loopback protection
+    if (!imageBase64) {
+      try {
+        const localPath = path.join(process.cwd(), 'public', 'dandiya-art.jpg');
+        if (fs.existsSync(localPath)) {
+          const buffer = fs.readFileSync(localPath);
+          imageBase64 = `data:image/jpeg;base64,${buffer.toString('base64')}`;
+        }
+      } catch (err) {
+        console.warn('Local disk fallback failed:', err);
+      }
+    }
+
+    const finalImageSrc = imageBase64 || imageUrl;
 
     // Generate QR code internally using usn
     const qrDataUrl = await QRCode.toDataURL(`niat-navratri-26-${usn}`, {
@@ -147,7 +166,7 @@ export async function GET(req: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imageSrc}
+              src={finalImageSrc}
               alt="Dandiya Celebration Artwork"
               style={{
                 width: '300px',
