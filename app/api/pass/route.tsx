@@ -1,8 +1,6 @@
 import { ImageResponse } from 'next/og';
 import { NextRequest } from 'next/server';
 import QRCode from 'qrcode';
-import fs from 'fs';
-import path from 'path';
 
 export async function GET(req: NextRequest) {
   try {
@@ -11,38 +9,18 @@ export async function GET(req: NextRequest) {
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
 
-    // 1. Get the real host and protocol from x-forwarded headers (most reliable on Vercel)
-    const protocol = req.headers.get('x-forwarded-proto') || 'https';
-    const host = req.headers.get('x-forwarded-host') || req.headers.get('host') || 'localhost:3000';
-    const baseUrl = `${protocol}://${host}`;
-    const imageUrl = `${baseUrl}/dandiya-art.jpg`;
-
-    // 2. Fetch the image securely and convert to base64
-    let imageSrc = imageUrl;
+    // Load local image asset using import.meta.url for Vercel bundling
+    let imageBase64 = '';
     try {
-      const res = await fetch(imageUrl);
-      if (res.ok) {
-        const buffer = await res.arrayBuffer();
-        const base64 = Buffer.from(buffer).toString('base64');
-        imageSrc = `data:image/jpeg;base64,${base64}`;
+      const imageRes = await fetch(new URL('../../../public/dandiya-art.jpg', import.meta.url));
+      if (imageRes.ok) {
+        const imageBuffer = await imageRes.arrayBuffer();
+        imageBase64 = `data:image/jpeg;base64,${Buffer.from(imageBuffer).toString('base64')}`;
       } else {
-        console.error('Failed to fetch image, status:', res.status);
+        console.error('Failed to load local image status:', imageRes.status);
       }
     } catch (e) {
-      console.error('Fetch error:', e);
-    }
-
-    // 3. Local disk fallback for local localhost loopback protection
-    if (!imageSrc.startsWith('data:image')) {
-      try {
-        const localPath = path.join(process.cwd(), 'public', 'dandiya-art.jpg');
-        if (fs.existsSync(localPath)) {
-          const buffer = fs.readFileSync(localPath);
-          imageSrc = `data:image/jpeg;base64,${buffer.toString('base64')}`;
-        }
-      } catch (err) {
-        console.warn('Local disk fallback warning:', err);
-      }
+      console.error('Failed to load local image asset:', e);
     }
 
     // Generate QR code internally using usn
@@ -165,7 +143,7 @@ export async function GET(req: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imageSrc}
+              src={imageBase64}
               alt="Dandiya Celebration Artwork"
               style={{
                 width: '300px',
