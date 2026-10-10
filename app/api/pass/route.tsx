@@ -9,19 +9,25 @@ export async function GET(req: NextRequest) {
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
 
-    // Load local image asset using import.meta.url for Vercel bundling
+    // Hardcode the image URL to the raw GitHub repository file URL
+    const imageUrl =
+      'https://raw.githubusercontent.com/Shreniksk03/navratri-pass-system/main/public/dandiya-art-1.jpg';
+
+    // Fetch the image from GitHub and convert to base64
     let imageBase64 = '';
     try {
-      const imageRes = await fetch(new URL('../../../public/dandiya-art.jpg', import.meta.url));
-      if (imageRes.ok) {
-        const imageBuffer = await imageRes.arrayBuffer();
-        imageBase64 = `data:image/jpeg;base64,${Buffer.from(imageBuffer).toString('base64')}`;
+      const res = await fetch(imageUrl);
+      if (res.ok) {
+        const buffer = await res.arrayBuffer();
+        imageBase64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
       } else {
-        console.error('Failed to load local image status:', imageRes.status);
+        console.error('GitHub image fetch status:', res.status);
       }
     } catch (e) {
-      console.error('Failed to load local image asset:', e);
+      console.error('GitHub fetch failed:', e);
     }
+
+    const imageSrc = imageBase64 || imageUrl;
 
     // Generate QR code internally using usn
     const qrDataUrl = await QRCode.toDataURL(`niat-navratri-26-${usn}`, {
@@ -143,7 +149,7 @@ export async function GET(req: NextRequest) {
           >
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={imageBase64}
+              src={imageSrc}
               alt="Dandiya Celebration Artwork"
               style={{
                 width: '300px',
