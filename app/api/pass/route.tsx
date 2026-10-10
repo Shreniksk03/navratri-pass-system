@@ -1,303 +1,62 @@
 import { ImageResponse } from 'next/og';
-import { NextRequest } from 'next/server';
 import QRCode from 'qrcode';
+import { promises as fs } from 'fs';
+import path from 'path';
 
-export async function GET(req: NextRequest) {
+// IMPORTANT: Do NOT use `export const runtime = 'edge'`. Leave it as default Node.js.
+
+export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const name = searchParams.get('name') || 'Student Pass';
+    const name = searchParams.get('name') || 'Student';
     const usn = searchParams.get('usn') || 'N/A';
     const year = searchParams.get('year') || '';
 
-    // Hardcode the image URL to the raw GitHub repository file URL
-    const imageUrl =
-      'https://raw.githubusercontent.com/Shreniksk03/navratri-pass-system/main/public/dandiya-art-1.jpg';
+    // 1. Safely read the image from the public folder in Node runtime
+    const filePath = path.join(process.cwd(), 'public', 'dandiya-art-2.jpg');
+    const imageBuffer = await fs.readFile(filePath);
+    const imageBase64 = `data:image/jpeg;base64,${imageBuffer.toString('base64')}`;
 
-    // Fetch the image from GitHub and convert to base64
-    let imageBase64 = '';
-    try {
-      const res = await fetch(imageUrl);
-      if (res.ok) {
-        const buffer = await res.arrayBuffer();
-        imageBase64 = `data:image/jpeg;base64,${Buffer.from(buffer).toString('base64')}`;
-      } else {
-        console.error('GitHub image fetch status:', res.status);
-      }
-    } catch (e) {
-      console.error('GitHub fetch failed:', e);
-    }
-
-    const imageSrc = imageBase64 || imageUrl;
-
-    // Generate QR code internally using usn
+    // 2. Generate QR Code
     const qrDataUrl = await QRCode.toDataURL(`niat-navratri-26-${usn}`, {
       margin: 1,
-      width: 130,
-      color: {
-        dark: '#7C2D12',
-        light: '#FFFFFF',
-      },
+      width: 160,
     });
 
+    // 3. Return the OG Image
     return new ImageResponse(
       (
-        <div
-          style={{
-            height: '100%',
-            width: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            backgroundColor: '#FFEDD5', // bg-orange-100
-            backgroundImage:
-              'radial-gradient(circle at 50% 0%, #FED7AA 0%, #FFEDD5 70%, #FFEDD5 100%)',
-            padding: '16px 18px',
-            border: '10px solid #C2410C', // Festive red-orange outer border
-            boxSizing: 'border-box',
-            fontFamily: 'sans-serif',
-          }}
-        >
-          {/* Header Banner */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              width: '100%',
-              marginBottom: '4px',
-            }}
-          >
-            <div
-              style={{
-                display: 'flex',
-                fontSize: '11px',
-                letterSpacing: '3px',
-                fontWeight: 800,
-                color: '#B45309',
-                textTransform: 'uppercase',
-                marginBottom: '2px',
-              }}
-            >
-              ★ OFFICIAL DIGITAL PASS ★
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                fontSize: '24px',
-                fontWeight: 900,
-                color: '#9A3412', // Large bold red/orange font
-                textAlign: 'center',
-                lineHeight: '1.1',
-              }}
-            >
-              Navratri Dandiya Celebration
-            </div>
-            <div
-              style={{
-                display: 'flex',
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#C2410C',
-                marginTop: '2px',
-              }}
-            >
-              Grand Campus Cultural Night 2026
-            </div>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#FFF0D4', width: '100%', height: '100%', padding: '40px' }}>
+          {/* Header */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '20px' }}>
+            <p style={{ color: '#C2410C', fontSize: '14px', letterSpacing: '2px', margin: 0 }}>⚲ OFFICIAL DIGITAL PASS ⚲</p>
+            <h1 style={{ color: '#9A2A2A', fontSize: '36px', margin: '10px 0 5px 0' }}>Navratri Dandiya Celebration</h1>
+            <p style={{ color: '#D97706', fontSize: '16px', margin: 0 }}>Grand Campus Cultural Night 2026</p>
           </div>
 
-          {/* Decorative Divider */}
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              width: '80%',
-              justifyContent: 'center',
-              marginBottom: '6px',
-            }}
-          >
-            <div style={{ display: 'flex', flex: 1, height: '2px', backgroundColor: '#F97316' }} />
-            <div
-              style={{
-                display: 'flex',
-                color: '#EA580C',
-                padding: '0 8px',
-                fontSize: '12px',
-                fontWeight: 700,
-              }}
-            >
-              FESTIVAL VIP PASS
-            </div>
-            <div style={{ display: 'flex', flex: 1, height: '2px', backgroundColor: '#F97316' }} />
+          {/* Artwork */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={imageBase64} style={{ width: '360px', height: '450px', objectFit: 'cover', borderRadius: '16px', border: '4px solid #EA580C' }} alt="Pass Artwork" />
+
+          {/* Student Info Container */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#FFFFFF', padding: '15px 40px', borderRadius: '12px', border: '2px dashed #FDBA74', marginTop: '20px', width: '360px' }}>
+            <h2 style={{ color: '#1E293B', fontSize: '28px', margin: '0 0 5px 0' }}>{name}</h2>
+            <p style={{ color: '#C2410C', fontSize: '18px', margin: '0 0 5px 0' }}>{year}</p>
+            <p style={{ color: '#64748B', fontSize: '16px', margin: 0 }}>USN: {usn}</p>
           </div>
 
-          {/* Central Portrait Artwork Container */}
-          <div
-            style={{
-              display: 'flex',
-              width: '300px',
-              height: '360px',
-              borderRadius: '16px',
-              overflow: 'hidden',
-              border: '4px solid #F97316',
-              boxShadow: '0 8px 16px rgba(194, 65, 12, 0.2)',
-              backgroundColor: '#FFF7ED',
-              position: 'relative',
-              justifyContent: 'center',
-              alignItems: 'center',
-            }}
-          >
+          {/* QR Code */}
+          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', backgroundColor: '#FFFFFF', padding: '10px', borderRadius: '12px', border: '3px solid #EA580C', marginTop: '20px' }}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={imageSrc}
-              alt="Dandiya Celebration Artwork"
-              style={{
-                width: '300px',
-                height: '360px',
-                objectFit: 'cover',
-                borderRadius: '12px',
-              }}
-            />
-            {/* Overlay badge */}
-            <div
-              style={{
-                display: 'flex',
-                position: 'absolute',
-                bottom: '10px',
-                right: '10px',
-                backgroundColor: '#9A3412',
-                color: '#FFFFFF',
-                padding: '4px 12px',
-                borderRadius: '12px',
-                fontSize: '11px',
-                fontWeight: 700,
-                letterSpacing: '1px',
-              }}
-            >
-              VIP ENTRY
-            </div>
-          </div>
-
-          {/* Student Details Container */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              marginTop: '6px',
-              marginBottom: '6px',
-              backgroundColor: '#FFFFFF',
-              borderRadius: '14px',
-              padding: '8px 18px',
-              width: '320px',
-              border: '2px dashed #FDBA74',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.04)',
-            }}
-          >
-            {/* 1. Student Name (Large Font) */}
-            <div
-              style={{
-                display: 'flex',
-                fontSize: '22px',
-                fontWeight: 900,
-                color: '#1E293B',
-                textAlign: 'center',
-                marginBottom: '1px',
-                letterSpacing: '-0.5px',
-              }}
-            >
-              {name}
-            </div>
-
-            {/* 2. Year (Medium Font) directly below Name */}
-            {year ? (
-              <div
-                style={{
-                  display: 'flex',
-                  fontSize: '15px',
-                  fontWeight: 700,
-                  color: '#C2410C',
-                  marginBottom: '2px',
-                }}
-              >
-                {year}
-              </div>
-            ) : null}
-
-            {/* 3. USN: [USN Number] (Smaller Font) below Year */}
-            <div
-              style={{
-                display: 'flex',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: '#64748B',
-                letterSpacing: '1.5px',
-                textTransform: 'uppercase',
-              }}
-            >
-              USN: {usn}
-            </div>
-          </div>
-
-          {/* QR Code Container at the Very Bottom */}
-          <div
-            style={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              backgroundColor: '#FFFFFF',
-              padding: '6px',
-              borderRadius: '14px',
-              border: '3px solid #EA580C',
-              boxShadow: '0 4px 10px rgba(154, 52, 18, 0.15)',
-            }}
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={qrDataUrl}
-              alt="Pass QR Code"
-              style={{
-                width: '105px',
-                height: '105px',
-                borderRadius: '6px',
-              }}
-            />
-            <div
-              style={{
-                display: 'flex',
-                fontSize: '9px',
-                fontWeight: 800,
-                color: '#9A3412',
-                marginTop: '3px',
-                letterSpacing: '1px',
-              }}
-            >
-              SCAN AT MAIN GATE
-            </div>
-          </div>
-
-          {/* Footer Notice */}
-          <div
-            style={{
-              display: 'flex',
-              fontSize: '10px',
-              color: '#9A3412',
-              fontWeight: 600,
-              marginTop: '4px',
-            }}
-          >
-            Non-Transferable • College ID Mandatory
+            <img src={qrDataUrl} style={{ width: '140px', height: '140px' }} alt="QR Code" />
+            <p style={{ color: '#9A2A2A', fontSize: '10px', marginTop: '5px', letterSpacing: '1px' }}>SCAN AT MAIN GATE</p>
           </div>
         </div>
       ),
-      {
-        width: 500,
-        height: 800,
-      }
+      { width: 500, height: 950 }
     );
-  } catch (error: any) {
-    console.error('Error generating pass image:', error);
-    return new Response(`Failed to generate pass image: ${error.message}`, { status: 500 });
+  } catch (error) {
+    console.error("Pass generation error:", error);
+    return new Response("Failed to generate pass. Check server logs.", { status: 500 });
   }
 }
