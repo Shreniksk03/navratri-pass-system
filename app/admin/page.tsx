@@ -83,12 +83,12 @@ export default function AdminDashboard() {
     fetchStudents();
   }, []);
 
-  // Construct short, clean pass URL pointing to actual /api/pass endpoint
+  // Force strictly production domain to avoid Vercel preview authentication lockouts
+  const PRODUCTION_BASE_URL = 'https://navratri-pass-system.vercel.app';
+
+  // Construct short, clean pass URL strictly pointing to production /api/pass endpoint
   const constructPassUrl = (name: string, usn: string, year: string): string => {
-    const baseUrl =
-      process.env.NEXT_PUBLIC_BASE_URL ||
-      (typeof window !== 'undefined' ? window.location.origin : 'https://navratri-pass-system.vercel.app');
-    return `${baseUrl}/api/pass?name=${encodeURIComponent(name)}&usn=${encodeURIComponent(usn)}&year=${encodeURIComponent(year || '')}`;
+    return `${PRODUCTION_BASE_URL}/api/pass?name=${encodeURIComponent(name)}&usn=${encodeURIComponent(usn)}&year=${encodeURIComponent(year || '')}`;
   };
 
   // Generate button logic (saves passUrl & qrData to Google Sheet)
@@ -136,9 +136,9 @@ export default function AdminDashboard() {
     }
   };
 
-  // Send via WhatsApp logic: appends actual passUrl image endpoint, NOT raw QR text
+  // Send via WhatsApp logic: strictly uses the production passUrl, avoiding any preview domain lockouts
   const handleSendWhatsApp = (student: Student) => {
-    const passUrl = student.passUrl || constructPassUrl(student.name, student.usn, student.year);
+    const passUrl = constructPassUrl(student.name, student.usn, student.year);
 
     let cleanPhone = student.whatsappNumber.replace(/\D/g, '');
     if (cleanPhone.length === 10) {
@@ -191,7 +191,7 @@ export default function AdminDashboard() {
   };
 
   const handleOpenPreview = (student: Student) => {
-    const url = student.passUrl || constructPassUrl(student.name, student.usn, student.year);
+    const url = constructPassUrl(student.name, student.usn, student.year);
     setPreviewStudent(student);
     setPreviewPassUrl(url);
   };
