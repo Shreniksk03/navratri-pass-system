@@ -1,7 +1,5 @@
 import { ImageResponse } from 'next/og';
 
-// Restore edge runtime - Vercel OG requires this for stability!
-export const runtime = 'edge';
 
 export async function GET(req: Request) {
   try {
